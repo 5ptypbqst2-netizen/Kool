@@ -3,24 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Virtual Bet</title>
+<title>Virtual Betting</title>
 <style>
 body{
   margin:0;
   font-family:Arial, sans-serif;
-  background:radial-gradient(circle at top,#1f7a3a,#0b3d1f);
+  background:#0b3d1f;
   color:#fff;
   text-align:center;
 }
-.balance{
-  margin:10px;
-  font-size:18px;
+.top{
+  display:flex;
+  justify-content:space-between;
+  padding:10px 20px;
 }
+.balance{font-size:16px}
+.round{font-size:16px}
+
 .arena{
-  position:relative;
   width:360px;
   height:360px;
-  margin:20px auto;
+  margin:10px auto;
+  position:relative;
 }
 .icon{
   position:absolute;
@@ -33,43 +37,30 @@ body{
   justify-content:center;
   font-weight:bold;
   cursor:pointer;
-  box-shadow:0 0 10px rgba(0,0,0,.4);
 }
-.icon.active{outline:3px solid gold;}
-.mult{font-size:14px;}
-
-.top1{top:10px;left:90px}
-.top2{top:10px;left:210px}
-
-.mid1{top:90px;left:20px}
-.mid2{top:90px;right:20px}
-
-.low1{bottom:90px;left:20px}
-.low2{bottom:90px;right:20px}
-
-.bottom1{bottom:10px;left:90px}
-.bottom2{bottom:10px;left:210px}
-
+.icon.selected{
+  outline:3px solid gold;
+}
 .timer{
   position:absolute;
-  bottom:160px;
+  bottom:150px;
   left:50%;
   transform:translateX(-50%);
   font-size:32px;
-  font-weight:bold;
 }
 
-.history{
-  display:flex;
+.resultBox{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.8);
+  align-items:center;
   justify-content:center;
-  gap:6px;
-  margin:10px;
 }
-.history div{
-  width:26px;
-  height:26px;
-  border-radius:50%;
-  background:#0f5;
+.result{
+  background:#123;
+  padding:20px;
+  border-radius:12px;
 }
 
 .bets{
@@ -83,31 +74,38 @@ body{
   border:none;
   border-radius:8px;
   font-weight:bold;
-  cursor:pointer;
 }
+
+.top1{top:10px;left:90px}
+.top2{top:10px;left:210px}
+.mid1{top:100px;left:20px}
+.mid2{top:100px;right:20px}
+.low1{bottom:100px;left:20px}
+.low2{bottom:100px;right:20px}
+.bot1{bottom:10px;left:90px}
+.bot2{bottom:10px;left:210px}
 </style>
 </head>
+
 <body>
 
-<div class="balance">الرصيد: <span id="bal">1000000</span></div>
+<div class="top">
+  <div class="round">الجولة: <span id="round">1</span></div>
+  <div class="balance">الرصيد: <span id="balance">1000000</span></div>
+</div>
 
 <div class="arena">
-  <div class="icon top1 mult" data-m="100">x100</div>
-  <div class="icon top2 mult" data-m="100">x100</div>
-
-  <div class="icon mid1 mult" data-m="20">x20</div>
-  <div class="icon mid2 mult" data-m="20">x20</div>
-
-  <div class="icon low1 mult" data-m="8">x8</div>
-  <div class="icon low2 mult" data-m="8">x8</div>
-
-  <div class="icon bottom1 mult" data-m="3">x3</div>
-  <div class="icon bottom2 mult" data-m="3">x3</div>
+  <div class="icon top1" data-m="100">x100</div>
+  <div class="icon top2" data-m="100">x100</div>
+  <div class="icon mid1" data-m="20">x20</div>
+  <div class="icon mid2" data-m="20">x20</div>
+  <div class="icon low1" data-m="8">x8</div>
+  <div class="icon low2" data-m="8">x8</div>
+  <div class="icon bot1" data-m="3">x3</div>
+  <div class="icon bot2" data-m="3">x3</div>
 
   <div class="timer" id="timer">20</div>
 </div>
-
-<div class="history" id="history"></div>
 
 <div class="bets">
   <button onclick="setBet(50)">50</button>
@@ -116,41 +114,69 @@ body{
   <button onclick="setBet(50000)">50000</button>
 </div>
 
-<script>
-let balance=1000000,bet=0,selected=null,time=20;
-const balEl=document.getElementById("bal");
-const timerEl=document.getElementById("timer");
-const icons=document.querySelectorAll(".icon");
-const hist=document.getElementById("history");
+<div class="resultBox" id="resultBox">
+  <div class="result">
+    <p>الفائز: <span id="winner"></span></p>
+    <p>إجمالي الرهان: <span id="totalBet"></span></p>
+    <p>الربح: <span id="win"></span></p>
+  </div>
+</div>
 
-icons.forEach(i=>{
-  i.onclick=()=>{
-    icons.forEach(x=>x.classList.remove("active"));
-    i.classList.add("active");
-    selected=i;
+<script>
+let balance = 1000000;
+let currentBet = 0;
+let time = 20;
+let round = 1;
+let bets = [];
+const icons = document.querySelectorAll(".icon");
+
+function setBet(v){ currentBet = v; }
+
+icons.forEach(icon=>{
+  icon.onclick=()=>{
+    if(currentBet<=0 || balance<currentBet) return;
+    balance -= currentBet;
+    document.getElementById("balance").textContent = balance;
+    bets.push({icon, amount:currentBet});
+    icon.classList.add("selected");
   }
 });
 
-function setBet(v){bet=v;}
+function endRound(){
+  const winner = icons[Math.floor(Math.random()*icons.length)];
+  let totalBet = 0;
+  let win = 0;
 
-function round(){
-  time=20;
-  let win=icons[Math.floor(Math.random()*icons.length)];
-  if(selected===win && bet>0){
-    balance+=bet*win.dataset.m;
-  }
-  balEl.textContent=balance;
-  hist.innerHTML="";
-  for(let i=0;i<7;i++){
-    let d=document.createElement("div");
-    hist.appendChild(d);
-  }
+  bets.forEach(b=>{
+    totalBet += b.amount;
+    if(b.icon === winner){
+      win += b.amount * b.icon.dataset.m;
+    }
+  });
+
+  balance += win;
+  document.getElementById("balance").textContent = balance;
+
+  document.getElementById("winner").textContent = winner.textContent;
+  document.getElementById("totalBet").textContent = totalBet;
+  document.getElementById("win").textContent = win;
+
+  document.getElementById("resultBox").style.display="flex";
+
+  setTimeout(()=>{
+    document.getElementById("resultBox").style.display="none";
+    icons.forEach(i=>i.classList.remove("selected"));
+    bets=[];
+    time=20;
+    round++;
+    document.getElementById("round").textContent=round;
+  },3000);
 }
 
 setInterval(()=>{
   time--;
-  timerEl.textContent=time;
-  if(time<=0) round();
+  document.getElementById("timer").textContent=time;
+  if(time<=0) endRound();
 },1000);
 </script>
 
