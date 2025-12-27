@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bet Engine</title>
+<style>
+body{margin:0;font-family:Arial;background:#0b3d1f;color:#fff;text-align:center}
+.top{display:flex;justify-content:space-between;padding:10px 20px}
+.arena{width:360px;height:360px;margin:10px auto;position:relative}
+.icon{
+  position:absolute;width:60px;height:60px;border-radius:50%;
+  background:#1abc6c;display:flex;align-items:center;justify-content:center;
+  font-weight:bold;cursor:pointer
+}
+.icon span{
+  position:absolute;top:-18px;font-size:12px;color:gold
+}
+.timer{position:absolute;bottom:150px;left:50%;transform:translateX(-50%);font-size:32px}
+
+.resultBox{
+  position:fixed;inset:0;background:rgba(0,0,0,.85);
+  display:none;align-items:center;justify-content:center
+}
+.result{background:#123;padding:20px;border-radius:12px}
+
+.history{display:flex;justify-content:center;gap:6px;margin:10px}
+.history div{padding:4px 8px;background:#145;border-radius:6px}
+
+.bets{display:flex;justify-content:center;gap:10px}
+.bets button{padding:8px 14px;border:none;border-radius:8px}
+
+.top1{top:10px;left:90px}
+.top2{top:10px;left:210px}
+.mid1{top:100px;left:20px}
+.mid2{top:100px;right:20px}
+.low1{bottom:100px;left:20px}
+.low2{bottom:100px;right:20px}
+.bot1{bottom:10px;left:90px}
+.bot2{bottom:10px;left:210px}
+</style>
+</head>
+
+<body>
+
+<div class="top">
+  <div>الجولة: <span id="round">1</span></div>
+  <div>الرصيد: <span id="balance">1000000</span></div>
+</div>
+
+<div class="arena">
+  <div class="icon top1" data-m="100"><span>0</span>x100</div>
+  <div class="icon top2" data-m="100"><span>0</span>x100</div>
+  <div class="icon mid1" data-m="20"><span>0</span>x20</div>
+  <div class="icon mid2" data-m="20"><span>0</span>x20</div>
+  <div class="icon low1" data-m="8"><span>0</span>x8</div>
+  <div class="icon low2" data-m="8"><span>0</span>x8</div>
+  <div class="icon bot1" data-m="3"><span>0</span>x3</div>
+  <div class="icon bot2" data-m="3"><span>0</span>x3</div>
+  <div class="timer" id="timer">30</div>
+</div>
+
+<div class="history" id="history"></div>
+
+<div class="bets">
+  <button onclick="setBet(50)">50</button>
+  <button onclick="setBet(500)">500</button>
+  <button onclick="setBet(5000)">5000</button>
+  <button onclick="setBet(50000)">50000</button>
+</div>
+
+<div class="resultBox" id="resultBox">
+  <div class="result">
+    <p>الفائز: x<span id="winner"></span></p>
+    <p>إجمالي الرهان: <span id="totalBet"></span></p>
+    <p>النتيجة: <span id="win"></span></p>
+  </div>
+</div>
+
+<script>
+let balance=1000000,bet=0,round=1,time=30;
+let bets=[],history=[];
+const icons=[...document.querySelectorAll(".icon")];
+
+function setBet(v){bet=v}
+
+icons.forEach(i=>{
+  i.onclick=()=>{
+    if(bet<=0||balance<bet)return;
+    balance-=bet;
+    document.getElementById("balance").textContent=balance;
+    bets.push({icon:i,amount:bet});
+    i.querySelector("span").textContent++;
+  }
+});
+
+function pickWinner(){
+  const pool=[
+    ...Array(45).fill(3),
+    ...Array(30).fill(8),
+    ...Array(18).fill(20),
+    ...Array(7).fill(100)
+  ];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function endRound(){
+  const winMult=pickWinner();
+  let total=0,win=0;
+
+  bets.forEach(b=>{
+    total+=b.amount;
+    if(+b.icon.dataset.m===winMult){
+      win+=b.amount*winMult;
+    }
+  });
+
+  balance+=win;
+  document.getElementById("balance").textContent=balance;
+
+  history.unshift(winMult);
+  history=history.slice(0,7);
+  document.getElementById("history").innerHTML=
+    history.map(h=>`<div>x${h}</div>`).join("");
+
+  document.getElementById("winner").textContent=winMult;
+  document.getElementById("totalBet").textContent=total;
+  document.getElementById("win").textContent=win;
+  document.getElementById("resultBox").style.display="flex";
+
+  setTimeout(()=>{
+    document.getElementById("resultBox").style.display="none";
+    icons.forEach(i=>i.querySelector("span").textContent=0);
+    bets=[];
+    time=30;
+    round++;
+    document.getElementById("round").textContent=round;
+  },5000);
+}
+
+setInterval(()=>{
+  time--;
+  document.getElementById("timer").textContent=time;
+  if(time<=0)endRound();
+},1000);
+</script>
+
+</body>
+</html>
